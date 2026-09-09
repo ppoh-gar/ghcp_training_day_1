@@ -8,9 +8,15 @@
 
 ## Run Locally
 
-```powershell
+```bash
 uv sync --extra dev
 uv run uvicorn app.main:app --reload
 ```
 
 Then open http://localhost:8000.
+
+## Test
+
+```bash
+uv run pytest
+```

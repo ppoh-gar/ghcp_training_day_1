@@ -13,6 +13,8 @@ class TicketNotFoundError(LookupError):
 
 
 class TicketRepository:
+    _ticket_columns = "id, title, description, requester, priority, status, created_at, updated_at"
+
     def __init__(self, database_path: str | Path = "data/tickets.duckdb") -> None:
         self.database_path = str(database_path)
         path = Path(self.database_path)
@@ -84,7 +86,7 @@ class TicketRepository:
                 """
                 INSERT INTO tickets (title, description, requester, priority, status, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-                RETURNING *
+                RETURNING id, title, description, requester, priority, status, created_at, updated_at
                 """,
                 [
                     ticket.title,
@@ -114,7 +116,7 @@ class TicketRepository:
             search = f"%{filters.search}%"
             parameters.extend([search, search, search])
 
-        query = "SELECT * FROM tickets"
+        query = f"SELECT {self._ticket_columns} FROM tickets"
         if where_parts:
             query += " WHERE " + " AND ".join(where_parts)
         query += " ORDER BY created_at ASC, id ASC"
@@ -125,7 +127,10 @@ class TicketRepository:
 
     def get(self, ticket_id: int) -> Ticket:
         with self._lock:
-            row = self._connection.execute("SELECT * FROM tickets WHERE id = ?", [ticket_id]).fetchone()
+            row = self._connection.execute(
+                f"SELECT {self._ticket_columns} FROM tickets WHERE id = ?",
+                [ticket_id],
+            ).fetchone()
         if row is None:
             raise TicketNotFoundError(f"Ticket {ticket_id} was not found")
         return self._row_to_ticket(row)
@@ -147,7 +152,8 @@ class TicketRepository:
 
         with self._lock:
             row = self._connection.execute(
-                f"UPDATE tickets SET {', '.join(assignments)} WHERE id = ? RETURNING *",
+                f"UPDATE tickets SET {', '.join(assignments)} WHERE id = ? "
+                f"RETURNING {self._ticket_columns}",
                 parameters,
             ).fetchone()
         if row is None:
