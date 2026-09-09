@@ -1,33 +1,22 @@
 from nicegui import ui
 
 from app.database import TicketRepository
-from app.models import Ticket, TicketCreate, TicketPriority, TicketStatus, TicketUpdate
+from app.models import Ticket, TicketCreate, TicketFilters, TicketPriority, TicketStatus, TicketUpdate
 
 
 def mount_ui(repository: TicketRepository) -> None:
     @ui.page("/")
     def ticket_dashboard() -> None:
-        tickets_container = ui.column().classes("w-full gap-3")
-        status_filter = ui.select(
-            ["all", *[status.value for status in TicketStatus]],
-            value="all",
-            label="Status",
-        ).classes("w-44")
-        priority_filter = ui.select(
-            ["all", *[priority.value for priority in TicketPriority]],
-            value="all",
-            label="Priority",
-        ).classes("w-44")
-        search = ui.input("Search").props("clearable").classes("w-72")
+        controls: dict[str, ui.element] = {}
 
         def current_tickets() -> list[Ticket]:
-            return repository.list(
-                filters=None if status_filter.value == priority_filter.value == "all" and not search.value else _filters()
-            )
+            filters = _filters()
+            return repository.list(filters=None if filters.model_dump(exclude_none=True) == {} else filters)
 
-        def _filters():
-            from app.models import TicketFilters
-
+        def _filters() -> TicketFilters:
+            status_filter = controls["status_filter"]
+            priority_filter = controls["priority_filter"]
+            search = controls["search"]
             return TicketFilters(
                 status=None if status_filter.value == "all" else TicketStatus(status_filter.value),
                 priority=None if priority_filter.value == "all" else TicketPriority(priority_filter.value),
@@ -35,6 +24,7 @@ def mount_ui(repository: TicketRepository) -> None:
             )
 
         def refresh() -> None:
+            tickets_container = controls["tickets_container"]
             tickets_container.clear()
             with tickets_container:
                 tickets = current_tickets()
@@ -45,6 +35,10 @@ def mount_ui(repository: TicketRepository) -> None:
                     render_ticket(ticket)
 
         def create_ticket() -> None:
+            title = controls["title"]
+            description = controls["description"]
+            requester = controls["requester"]
+            priority = controls["priority"]
             try:
                 repository.create(
                     TicketCreate(
@@ -104,19 +98,34 @@ def mount_ui(repository: TicketRepository) -> None:
             with ui.card().classes("w-full rounded-lg border border-gray-200 shadow-sm"):
                 ui.label("New ticket").classes("text-xl font-semibold")
                 with ui.grid(columns=2).classes("w-full gap-4"):
-                    title = ui.input("Title").classes("w-full")
-                    requester = ui.input("Requester").classes("w-full")
-                    priority = ui.select(
+                    controls["title"] = ui.input("Title").classes("w-full")
+                    controls["requester"] = ui.input("Requester").classes("w-full")
+                    controls["priority"] = ui.select(
                         [priority.value for priority in TicketPriority],
                         value=TicketPriority.medium.value,
                         label="Priority",
                     ).classes("w-full")
-                    description = ui.textarea("Description").classes("w-full col-span-2")
+                    controls["description"] = ui.textarea("Description").classes("w-full col-span-2")
                 ui.button("Create ticket", on_click=create_ticket).props("color=primary")
 
-            with ui.row().classes("w-full items-center gap-3"):
-                status_filter.on("update:model-value", lambda _: refresh())
-                priority_filter.on("update:model-value", lambda _: refresh())
-                search.on("update:model-value", lambda _: refresh())
+            with ui.card().classes("w-full rounded-lg border border-gray-200 shadow-sm"):
+                ui.label("Filters").classes("text-xl font-semibold")
+                with ui.row().classes("w-full items-end gap-3 flex-wrap"):
+                    controls["status_filter"] = ui.select(
+                        ["all", *[status.value for status in TicketStatus]],
+                        value="all",
+                        label="Status",
+                    ).classes("w-44")
+                    controls["priority_filter"] = ui.select(
+                        ["all", *[priority.value for priority in TicketPriority]],
+                        value="all",
+                        label="Priority",
+                    ).classes("w-44")
+                    controls["search"] = ui.input("Search").props("clearable").classes("min-w-72 grow")
+
+            controls["status_filter"].on("update:model-value", lambda _: refresh())
+            controls["priority_filter"].on("update:model-value", lambda _: refresh())
+            controls["search"].on("update:model-value", lambda _: refresh())
+            controls["tickets_container"] = ui.column().classes("w-full gap-3")
 
             refresh()
