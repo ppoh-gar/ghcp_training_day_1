@@ -13,6 +13,7 @@ class TicketNotFoundError(LookupError):
 
 
 class TicketRepository:
+    _ticket_column_names = ("id", "title", "description", "requester", "priority", "status", "created_at", "updated_at")
     _ticket_columns = "id, title, description, requester, priority, status, created_at, updated_at"
 
     def __init__(self, database_path: str | Path = "data/tickets.duckdb") -> None:
@@ -101,26 +102,7 @@ class TicketRepository:
         return self._row_to_ticket(row)
 
     def list(self, filters: TicketFilters | None = None) -> list[Ticket]:
-        filters = filters or TicketFilters()
-        where_parts: list[str] = []
-        parameters: list[str] = []
-
-        if filters.status:
-            where_parts.append("status = ?")
-            parameters.append(filters.status.value)
-        if filters.priority:
-            where_parts.append("priority = ?")
-            parameters.append(filters.priority.value)
-        if filters.search:
-            where_parts.append("(title ILIKE ? OR description ILIKE ? OR requester ILIKE ?)")
-            search = f"%{filters.search}%"
-            parameters.extend([search, search, search])
-
-        query = f"SELECT {self._ticket_columns} FROM tickets"
-        if where_parts:
-            query += " WHERE " + " AND ".join(where_parts)
-        query += " ORDER BY created_at ASC, id ASC"
-
+        query, parameters = self._build_list_query(filters or TicketFilters())
         with self._lock:
             rows = self._connection.execute(query, parameters).fetchall()
         return [self._row_to_ticket(row) for row in rows]
@@ -140,12 +122,7 @@ class TicketRepository:
         if not changes:
             return self.get(ticket_id)
 
-        assignments: list[str] = []
-        parameters: list[object] = []
-        for field, value in changes.items():
-            assignments.append(f"{field} = ?")
-            parameters.append(value.value if hasattr(value, "value") else value)
-
+        assignments, parameters = self._build_update_assignments(changes)
         assignments.append("updated_at = ?")
         parameters.append(self._now())
         parameters.append(ticket_id)
@@ -156,9 +133,7 @@ class TicketRepository:
                 f"RETURNING {self._ticket_columns}",
                 parameters,
             ).fetchone()
-        if row is None:
-            raise TicketNotFoundError(f"Ticket {ticket_id} was not found")
-        return self._row_to_ticket(row)
+        return self._require_ticket(row, ticket_id)
 
     def delete(self, ticket_id: int) -> None:
         with self._lock:
@@ -167,7 +142,7 @@ class TicketRepository:
                 [ticket_id],
             ).fetchone()
         if deleted is None:
-            raise TicketNotFoundError(f"Ticket {ticket_id} was not found")
+            self._raise_not_found(ticket_id)
 
     @staticmethod
     def _now() -> datetime:
@@ -175,5 +150,43 @@ class TicketRepository:
 
     @staticmethod
     def _row_to_ticket(row: Iterable[object]) -> Ticket:
-        keys = ["id", "title", "description", "requester", "priority", "status", "created_at", "updated_at"]
-        return Ticket.model_validate(dict(zip(keys, row, strict=True)))
+        return Ticket.model_validate(dict(zip(TicketRepository._ticket_column_names, row, strict=True)))
+
+    def _build_list_query(self, filters: TicketFilters) -> tuple[str, "list[str]"]:
+        where_parts: list[str] = []
+        parameters: list[str] = []
+
+        if filters.status:
+            where_parts.append("status = ?")
+            parameters.append(filters.status.value)
+        if filters.priority:
+            where_parts.append("priority = ?")
+            parameters.append(filters.priority.value)
+        if filters.search:
+            where_parts.append("(title ILIKE ? OR description ILIKE ? OR requester ILIKE ?)")
+            search = f"%{filters.search}%"
+            parameters.extend([search, search, search])
+
+        query = f"SELECT {self._ticket_columns} FROM tickets"
+        if where_parts:
+            query += " WHERE " + " AND ".join(where_parts)
+        query += " ORDER BY created_at ASC, id ASC"
+        return query, parameters
+
+    @staticmethod
+    def _build_update_assignments(changes: dict[str, object]) -> tuple["list[str]", "list[object]"]:
+        assignments: list[str] = []
+        parameters: list[object] = []
+        for field, value in changes.items():
+            assignments.append(f"{field} = ?")
+            parameters.append(value.value if hasattr(value, "value") else value)
+        return assignments, parameters
+
+    def _require_ticket(self, row: Iterable[object] | None, ticket_id: int) -> Ticket:
+        if row is None:
+            self._raise_not_found(ticket_id)
+        return self._row_to_ticket(row)
+
+    @staticmethod
+    def _raise_not_found(ticket_id: int) -> None:
+        raise TicketNotFoundError(f"Ticket {ticket_id} was not found")

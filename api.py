@@ -6,6 +6,10 @@ from app.database import TicketNotFoundError, TicketRepository
 from app.models import Ticket, TicketCreate, TicketFilters, TicketPriority, TicketStatus, TicketUpdate
 
 
+def _ticket_not_found_http_exception(error: TicketNotFoundError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
 def create_api_router(repository: TicketRepository) -> APIRouter:
     router = APIRouter(prefix="/api", tags=["tickets"])
 
@@ -33,7 +37,7 @@ def create_api_router(repository: TicketRepository) -> APIRouter:
         try:
             return tickets.get(ticket_id)
         except TicketNotFoundError as error:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+            raise _ticket_not_found_http_exception(error) from error
 
     @router.patch("/tickets/{ticket_id}", response_model=Ticket)
     def update_ticket(
@@ -44,7 +48,7 @@ def create_api_router(repository: TicketRepository) -> APIRouter:
         try:
             return tickets.update(ticket_id, update)
         except TicketNotFoundError as error:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+            raise _ticket_not_found_http_exception(error) from error
 
     @router.delete("/tickets/{ticket_id}", status_code=status.HTTP_204_NO_CONTENT)
     def delete_ticket(
@@ -54,7 +58,7 @@ def create_api_router(repository: TicketRepository) -> APIRouter:
         try:
             tickets.delete(ticket_id)
         except TicketNotFoundError as error:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+            raise _ticket_not_found_http_exception(error) from error
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return router

@@ -4,23 +4,43 @@ from app.database import TicketRepository
 from app.models import Ticket, TicketCreate, TicketFilters, TicketPriority, TicketStatus, TicketUpdate
 
 
+def _build_ticket_filters(status_value: str, priority_value: str, search_value: str | None) -> TicketFilters:
+    return TicketFilters(
+        status=None if status_value == "all" else TicketStatus(status_value),
+        priority=None if priority_value == "all" else TicketPriority(priority_value),
+        search=search_value or None,
+    )
+
+
+def _ticket_filters_or_none(status_value: str, priority_value: str, search_value: str | None) -> TicketFilters | None:
+    filters = _build_ticket_filters(status_value, priority_value, search_value)
+    return None if filters.model_dump(exclude_none=True) == {} else filters
+
+
+def _build_ticket_create(title: str, description: str, requester: str, priority_value: str) -> TicketCreate:
+    return TicketCreate(
+        title=title,
+        description=description,
+        requester=requester,
+        priority=TicketPriority(priority_value),
+    )
+
+
 def mount_ui(repository: TicketRepository) -> None:
     @ui.page("/")
     def ticket_dashboard() -> None:
         controls: dict[str, ui.element] = {}
 
         def current_tickets() -> list[Ticket]:
-            filters = _filters()
-            return repository.list(filters=None if filters.model_dump(exclude_none=True) == {} else filters)
-
-        def _filters() -> TicketFilters:
             status_filter = controls["status_filter"]
             priority_filter = controls["priority_filter"]
             search = controls["search"]
-            return TicketFilters(
-                status=None if status_filter.value == "all" else TicketStatus(status_filter.value),
-                priority=None if priority_filter.value == "all" else TicketPriority(priority_filter.value),
-                search=search.value or None,
+            return repository.list(
+                _ticket_filters_or_none(
+                    status_filter.value,
+                    priority_filter.value,
+                    search.value,
+                )
             )
 
         def refresh() -> None:
@@ -40,14 +60,7 @@ def mount_ui(repository: TicketRepository) -> None:
             requester = controls["requester"]
             priority = controls["priority"]
             try:
-                repository.create(
-                    TicketCreate(
-                        title=title.value,
-                        description=description.value,
-                        requester=requester.value,
-                        priority=TicketPriority(priority.value),
-                    )
-                )
+                repository.create(_build_ticket_create(title.value, description.value, requester.value, priority.value))
             except ValueError as error:
                 ui.notify(str(error), color="negative")
                 return
