@@ -1,3 +1,4 @@
+"""NiceGUI web dashboard for creating, filtering, and updating tickets."""
 from nicegui import ui
 
 from app.database import TicketRepository
@@ -5,6 +6,7 @@ from app.models import Ticket, TicketCreate, TicketFilters, TicketPriority, Tick
 
 
 def _build_ticket_filters(status_value: str, priority_value: str, search_value: str | None) -> TicketFilters:
+    """Map raw select/input values to a `TicketFilters`, treating `"all"` as no filter."""
     return TicketFilters(
         status=None if status_value == "all" else TicketStatus(status_value),
         priority=None if priority_value == "all" else TicketPriority(priority_value),
@@ -13,11 +15,13 @@ def _build_ticket_filters(status_value: str, priority_value: str, search_value: 
 
 
 def _ticket_filters_or_none(status_value: str, priority_value: str, search_value: str | None) -> TicketFilters | None:
+    """Build filters from control values, returning `None` if every field is empty."""
     filters = _build_ticket_filters(status_value, priority_value, search_value)
     return None if filters.model_dump(exclude_none=True) == {} else filters
 
 
 def _build_ticket_create(title: str, description: str, requester: str, priority_value: str) -> TicketCreate:
+    """Build a `TicketCreate` from the new-ticket form's raw control values."""
     return TicketCreate(
         title=title,
         description=description,
@@ -27,11 +31,18 @@ def _build_ticket_create(title: str, description: str, requester: str, priority_
 
 
 def mount_ui(repository: TicketRepository) -> None:
+    """Register the `/` NiceGUI page: a ticket dashboard backed by `repository`.
+
+    Args:
+        repository: The `TicketRepository` used to list, create, and update tickets.
+    """
     @ui.page("/")
     def ticket_dashboard() -> None:
+        """Render the ticket dashboard page: creation form, filters, and ticket list."""
         controls: dict[str, ui.element] = {}
 
         def current_tickets() -> list[Ticket]:
+            """Fetch tickets matching the dashboard's current filter control values."""
             status_filter = controls["status_filter"]
             priority_filter = controls["priority_filter"]
             search = controls["search"]
@@ -44,6 +55,7 @@ def mount_ui(repository: TicketRepository) -> None:
             )
 
         def refresh() -> None:
+            """Re-render the ticket list from the current filter control values."""
             tickets_container = controls["tickets_container"]
             tickets_container.clear()
             with tickets_container:
@@ -55,6 +67,7 @@ def mount_ui(repository: TicketRepository) -> None:
                     render_ticket(ticket)
 
         def create_ticket() -> None:
+            """Create a ticket from the form fields; shows a notification and clears the form on success."""
             title = controls["title"]
             description = controls["description"]
             requester = controls["requester"]
@@ -72,6 +85,11 @@ def mount_ui(repository: TicketRepository) -> None:
             refresh()
 
         def render_ticket(ticket: Ticket) -> None:
+            """Render a single ticket card with its details and a status-change select.
+
+            Args:
+                ticket: The ticket to render.
+            """
             with ui.card().classes("w-full rounded-lg border border-gray-200 shadow-sm"):
                 with ui.row().classes("w-full items-start justify-between gap-4"):
                     with ui.column().classes("gap-1"):
@@ -88,6 +106,12 @@ def mount_ui(repository: TicketRepository) -> None:
                         ui.label(f"Priority: {ticket.priority.value}").classes("text-sm font-medium uppercase text-gray-500")
 
         def update_status(ticket_id: int, status_value: str) -> None:
+            """Update a ticket's status and refresh the list.
+
+            Args:
+                ticket_id: The ticket's primary key.
+                status_value: The new status value selected in the UI.
+            """
             repository.update(ticket_id, TicketUpdate(status=TicketStatus(status_value)))
             ui.notify("Ticket updated", color="positive")
             refresh()

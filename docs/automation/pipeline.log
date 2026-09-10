@@ -1,0 +1,25 @@
+2026-09-10 13:14:09,539 [INFO] doc_pipeline: PHASE 1 (Scope Identification): scanning .
+2026-09-10 13:14:10,047 [INFO] doc_pipeline: Scope defined: 12 Python file(s) targeted for documentation (1638 excluded)
+2026-09-10 13:14:10,048 [DEBUG] doc_pipeline:   scoped file: __init__.py
+2026-09-10 13:14:10,048 [DEBUG] doc_pipeline:   scoped file: api.py
+2026-09-10 13:14:10,049 [DEBUG] doc_pipeline:   scoped file: app\__init__.py
+2026-09-10 13:14:10,049 [DEBUG] doc_pipeline:   scoped file: app\api.py
+2026-09-10 13:14:10,050 [DEBUG] doc_pipeline:   scoped file: app\database.py
+2026-09-10 13:14:10,051 [DEBUG] doc_pipeline:   scoped file: app\main.py
+2026-09-10 13:14:10,051 [DEBUG] doc_pipeline:   scoped file: app\models.py
+2026-09-10 13:14:10,051 [DEBUG] doc_pipeline:   scoped file: app\ui.py
+2026-09-10 13:14:10,051 [DEBUG] doc_pipeline:   scoped file: database.py
+2026-09-10 13:14:10,052 [DEBUG] doc_pipeline:   scoped file: main.py
+2026-09-10 13:14:10,052 [DEBUG] doc_pipeline:   scoped file: models.py
+2026-09-10 13:14:10,052 [DEBUG] doc_pipeline:   scoped file: ui.py
+2026-09-10 13:14:10,054 [INFO] doc_pipeline: PHASE 2 (File/Logic Analysis): parsing 12 file(s)
+2026-09-10 13:14:10,100 [INFO] doc_pipeline: Analysis complete: 0 symbol(s) missing docstrings out of 61 (coverage 100%)
+2026-09-10 13:14:10,102 [INFO] doc_pipeline: PHASE 3 (Inline Documentation): inserting 0 stub docstring(s) [style=google]
+2026-09-10 13:14:10,102 [INFO] doc_pipeline: NOTE: stub docstrings are placeholders. The Documentation Agent must replace them with accurate, reviewed content before Phase 4 (Sphinx).
+2026-09-10 13:14:10,103 [INFO] doc_pipeline: PHASE 4 (Sphinx Generation): building docs into docs\build
+2026-09-10 13:14:10,147 [DEBUG] doc_pipeline:   running: C:\Program Files\Python314\python.exe -m sphinx.ext.apidoc -f -o docs\build\api . .git __pycache__ tests docs data .venv venv node_modules
+2026-09-10 13:14:11,218 [DEBUG] doc_pipeline:   running: C:\Program Files\Python314\python.exe -m sphinx -b html docs\build docs\build\_html
+2026-09-10 13:14:19,088 [INFO] doc_pipeline: Sphinx build succeeded: docs\build\_html\index.html
+2026-09-10 13:14:19,089 [INFO] doc_pipeline: PHASE 5 (Review & Maintenance): recomputing coverage and writing report
+2026-09-10 13:14:19,131 [INFO] doc_pipeline: Report written to C:\temp\ghcp_training_day_1\docs\automation\report.md
+2026-09-10 13:14:19,132 [INFO] doc_pipeline: Pipeline finished with status: done

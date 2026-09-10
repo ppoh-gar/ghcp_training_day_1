@@ -1,3 +1,4 @@
+"""FastAPI + NiceGUI application entry point for the ticketing system."""
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -12,12 +13,24 @@ from app.ui import mount_ui
 
 
 def create_app(database_path: str | None = None, seed: bool = True) -> FastAPI:
+    """Build the FastAPI app: repository, REST API router, NiceGUI dashboard, and lifespan.
+
+    Args:
+        database_path: DuckDB file path, or `":memory:"`. Defaults to the
+            `TICKET_DB_PATH` env var, then `"data/tickets.duckdb"`.
+        seed: Whether to insert sample tickets if the database is empty.
+
+    Returns:
+        A configured `FastAPI` application with the ticket API mounted at
+        `/api` and the NiceGUI dashboard mounted at `/`.
+    """
     repository = TicketRepository(database_path or os.getenv("TICKET_DB_PATH", "data/tickets.duckdb"))
     if seed:
         repository.seed_defaults()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        """Close the repository's DuckDB connection when the app shuts down."""
         try:
             yield
         finally:
@@ -28,6 +41,7 @@ def create_app(database_path: str | None = None, seed: bool = True) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
+        """Liveness check endpoint used for monitoring."""
         return {"status": "ok"}
 
     mount_ui(repository)
